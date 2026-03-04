@@ -12,12 +12,12 @@ export class ScorePanel {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.bg = scene.add.graphics();
     this.bg.fillStyle(0xffffff, 0.1);
-    this.bg.fillRoundedRect(0, 0, 180, 50, UI_CONFIG.radius.panel);
+    this.bg.fillRoundedRect(0, 0, 430, 120, UI_CONFIG.radius.panel); // Scaled
 
-    this.text = createText(scene, 10, 25, `Score: ${this.score}`, UI_CONFIG.text.panel).setOrigin(0, 0.5);
+    this.text = createText(scene, 24, 60, `Score: ${this.score}`, UI_CONFIG.text.panel).setOrigin(0, 0.5); // Scaled
 
     this.container = scene.add.container(x, y, [this.bg, this.text]);
-    this.container.setSize(180, 50);
+    this.container.setSize(430, 120); // Scaled
   }
 
   setScore(scene: Phaser.Scene, score: number, flash: 'plus' | 'minus' | 'none'): void {

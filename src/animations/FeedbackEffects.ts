@@ -29,12 +29,12 @@ export const showHitFeedback = (
       break;
   }
 
-  const feedback = createText(scene, x, y - 40, text, {
-    fontSize: '24px',
+  const feedback = createText(scene, x, y - 100, text, {
+    fontSize: '58px', // Scaled for HD (was 24px)
     fontFamily: 'Arial Black, sans-serif',
     color: color,
     stroke: '#000000',
-    strokeThickness: 4,
+    strokeThickness: 10, // Scaled for HD (was 4)
   }).setOrigin(0.5);
 
   feedback.setScale(0);
@@ -46,7 +46,7 @@ export const showHitFeedback = (
     scene.tweens.add({
       targets: feedback,
       scale: { from: 0, to: scale },
-      y: y - 60,
+      y: y - 150, // Scaled
       duration: 200,
       ease: 'Back.easeOut',
       onComplete: () => {

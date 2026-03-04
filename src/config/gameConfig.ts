@@ -8,8 +8,8 @@ const getDevicePixelRatio = (): number => {
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.WEBGL,
-  width: 800,
-  height: 450,
+  width: 1920, // Base width for HD
+  height: 1080, // Base height for HD
   parent: 'game-container',
   backgroundColor: '#000000',
   render: {
@@ -38,8 +38,8 @@ export const GAME_RENDER_RESOLUTION = getDevicePixelRatio();
 export const GAME_PLAY_CONFIG = {
   durationSeconds: 60,
   spawnIntervalMs: 900,
-  blockSize: 40,
-  hitPadHeight: 50,
+  blockSize: 100, // Scaled for HD (was 40)
+  hitPadHeight: 120, // Scaled for HD (was 50)
   score: {
     perfect: 100,
     good: 50,
@@ -47,13 +47,13 @@ export const GAME_PLAY_CONFIG = {
     out: -10,
   },
   judge: {
-    perfectPx: 12,
-    goodPx: 30,
+    perfectPx: 30, // Scaled for HD (was 12)
+    goodPx: 75, // Scaled for HD (was 30)
   },
   speed: {
-    slow: 170,
-    medium: 230,
-    fast: 300,
+    slow: 400, // Scaled for HD (was 170)
+    medium: 550, // Scaled for HD (was 230)
+    fast: 720, // Scaled for HD (was 300)
   },
   adaptive: {
     evaluateAtSeconds: 10,
@@ -69,39 +69,39 @@ export const GAME_PLAY_CONFIG = {
 
 export const UI_CONFIG = {
   radius: {
-    panel: 10,
-    pad: 15,
-    button: 15,
-    card: 20,
-    block: 10,
+    panel: 24, // Scaled for HD (was 10)
+    pad: 36, // Scaled for HD (was 15)
+    button: 36, // Scaled for HD (was 15)
+    card: 48, // Scaled for HD (was 20)
+    block: 24, // Scaled for HD (was 10)
   },
   shadow: {
     color: 0x000000,
     alpha: 0.22,
-    blur: 6,
-    offsetX: 2,
-    offsetY: 2,
+    blur: 14, // Scaled for HD (was 6)
+    offsetX: 5, // Scaled for HD (was 2)
+    offsetY: 5, // Scaled for HD (was 2)
   },
   text: {
     title: {
-      fontSize: '36px',
+      fontSize: '86px', // Scaled for HD (was 36px)
       color: '#ffffff',
       fontFamily: 'Arial, sans-serif',
       fontStyle: 'bold',
     },
     subtitle: {
-      fontSize: '14px',
+      fontSize: '34px', // Scaled for HD (was 14px)
       color: 'rgba(255,255,255,0.7)',
       fontFamily: 'Arial, sans-serif',
     },
     panel: {
-      fontSize: '24px',
+      fontSize: '58px', // Scaled for HD (was 24px)
       color: '#ffffff',
       fontFamily: 'Arial, sans-serif',
       fontStyle: 'bold',
     },
     small: {
-      fontSize: '18px',
+      fontSize: '43px', // Scaled for HD (was 18px)
       color: '#ffffff',
       fontFamily: 'Arial, sans-serif',
       fontStyle: 'bold',

@@ -2,13 +2,13 @@ import Phaser from 'phaser';
 
 /**
  * A base scene that handles resizing logic for the "Ultimate Resolution" approach.
- * It uses Phaser's Scale.RESIZE mode but maintains a virtual viewport of 800x450.
+ * It uses Phaser's Scale.RESIZE mode but maintains a virtual viewport of 1920x1080 (HD).
  * The Main Camera is zoomed and centered to fit the content within the window,
  * ensuring 1:1 pixel mapping for vector graphics and text.
  */
 export class BaseScene extends Phaser.Scene {
-  protected readonly TARGET_WIDTH = 800;
-  protected readonly TARGET_HEIGHT = 450;
+  protected readonly TARGET_WIDTH = 1920;
+  protected readonly TARGET_HEIGHT = 1080;
   private resizeListener: ((gameSize: Phaser.Structs.Size) => void) | null = null;
 
   constructor(key: string) {
@@ -30,10 +30,16 @@ export class BaseScene extends Phaser.Scene {
     const width = gameSize.width;
     const height = gameSize.height;
 
-    // Calculate zoom to fit the target area (800x450) into the current window
+    // Calculate zoom to fit the target area into the current window
     // consistently like Scale.FIT but with native resolution
     const zoomX = width / this.TARGET_WIDTH;
     const zoomY = height / this.TARGET_HEIGHT;
+    
+    // For vertical screens (e.g. mobile 800x1200), we might want to fit width instead of height
+    // But since our game is designed for landscape (pads at bottom), simple FIT (min zoom) is usually safest.
+    // However, if the screen is VERY tall (portrait), just fitting width might make the game tiny.
+    // But fitting height would crop the sides (where panels are).
+    // So sticking to min(zoomX, zoomY) is correct for "Show All" behavior.
     const zoom = Math.min(zoomX, zoomY);
 
     this.cameras.main.setZoom(zoom);

@@ -13,12 +13,12 @@ export class CountdownPanel {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.bg = scene.add.graphics();
     this.bg.fillStyle(0xffffff, 0.1);
-    this.bg.fillRoundedRect(0, 0, 180, 50, UI_CONFIG.radius.panel);
+    this.bg.fillRoundedRect(0, 0, 430, 120, UI_CONFIG.radius.panel); // Scaled
 
-    this.text = createText(scene, 170, 25, `Time: ${this.timeLeft}`, UI_CONFIG.text.panel).setOrigin(1, 0.5);
+    this.text = createText(scene, 406, 60, `Time: ${this.timeLeft}`, UI_CONFIG.text.panel).setOrigin(1, 0.5); // Scaled
 
     this.container = scene.add.container(x, y, [this.bg, this.text]);
-    this.container.setSize(180, 50);
+    this.container.setSize(430, 120); // Scaled
   }
 
   setTime(scene: Phaser.Scene, seconds: number): void {

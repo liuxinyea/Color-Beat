@@ -139,14 +139,14 @@ export class GameScene extends BaseScene {
 
   private createHeader(): void {
     const w = this.TARGET_WIDTH;
-    const title = createText(this, w / 2, 22, UI_TEXT.title, UI_CONFIG.text.title).setOrigin(0.5);
+    const title = createText(this, w / 2, 60, UI_TEXT.title, UI_CONFIG.text.title).setOrigin(0.5); // Scaled Y
     title.setTintFill(0x4cc9f0, 0x7209b7, 0x7209b7, 0x4cc9f0);
     tweenScale(this, title, 1, 1.05, 2000, true);
 
-    const subtitle = createText(this, w / 2, 52, UI_TEXT.subtitle, UI_CONFIG.text.subtitle).setOrigin(0.5);
+    const subtitle = createText(this, w / 2, 130, UI_TEXT.subtitle, UI_CONFIG.text.subtitle).setOrigin(0.5); // Scaled Y
     subtitle.setAlpha(0.85);
 
-    const fromY = -40;
+    const fromY = -100; // Scaled
     const toY = title.y;
     title.setY(fromY);
     this.tweens.add({
@@ -159,16 +159,16 @@ export class GameScene extends BaseScene {
 
   private createPanels(): void {
     const w = this.TARGET_WIDTH;
-    this.scorePanel = new ScorePanel(this, 20, 20);
-    this.countdownPanel = new CountdownPanel(this, w - 200, 20);
+    this.scorePanel = new ScorePanel(this, 50, 50); // Scaled
+    this.countdownPanel = new CountdownPanel(this, w - 480, 50); // Scaled
 
     // Score panel enters from left
-    this.scorePanel.container.setPosition(-220, 20);
-    tweenMove(this, this.scorePanel.container, -220, 20, 20, 20, 500);
+    this.scorePanel.container.setPosition(-500, 50);
+    tweenMove(this, this.scorePanel.container, -500, 50, 50, 50, 500);
 
     // Countdown panel enters from right
-    this.countdownPanel.container.setPosition(w + 220, 20);
-    tweenMove(this, this.countdownPanel.container, w + 220, 20, w - 200, 20, 500);
+    this.countdownPanel.container.setPosition(w + 500, 50);
+    tweenMove(this, this.countdownPanel.container, w + 500, 50, w - 480, 50, 500);
 
     this.scorePanel.setScore(this, this.score, 'none');
     this.countdownPanel.setTime(this, this.timeLeft);
@@ -178,9 +178,9 @@ export class GameScene extends BaseScene {
     const w = this.TARGET_WIDTH;
     const h = this.TARGET_HEIGHT;
     const padH = GAME_PLAY_CONFIG.hitPadHeight;
-    const gap = 10;
+    const gap = 24; // Scaled
     const padW = Math.floor((w - gap * 5) / 4);
-    const y = h - padH / 2 - 18;
+    const y = h - padH / 2 - 40; // Scaled
     const isMobile = w < 600;
 
     const pads = {} as Record<ColorKey, Pad>;
