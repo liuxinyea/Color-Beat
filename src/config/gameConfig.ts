@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 const getDevicePixelRatio = (): number => {
   if (typeof window === 'undefined') return 1;
   const dpr = window.devicePixelRatio || 1;
-  return Math.min(2, Math.max(1, dpr));
+  return Math.max(1, dpr);
 };
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
@@ -14,13 +14,15 @@ export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#000000',
   render: {
     antialias: true,
+    antialiasGL: true,
+    pixelArt: false,
     roundPixels: false,
   },
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    min: { width: 400, height: 225 },
-    max: { width: 1200, height: 675 },
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.NO_CENTER,
+    width: '100%',
+    height: '100%',
   },
   physics: {
     default: 'arcade',

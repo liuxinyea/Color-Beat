@@ -10,7 +10,7 @@ const ensureBlockTexture = (scene: Phaser.Scene, color: ColorKey): void => {
   if (scene.textures.exists(key)) return;
 
   const size = GAME_PLAY_CONFIG.blockSize;
-  const resolution = Math.min(2, Math.max(1, Number((scene.game.config as any).resolution ?? 1)));
+  const resolution = Math.min(6, Math.max(1, Number((scene.game.config as any).resolution ?? 1)));
   const hiSize = Math.max(1, Math.floor(size * resolution));
   const canvasTex = scene.textures.createCanvas(key, hiSize, hiSize);
   if (!canvasTex) return;
@@ -19,13 +19,15 @@ const ensureBlockTexture = (scene: Phaser.Scene, color: ColorKey): void => {
   const radius = Math.floor(UI_CONFIG.radius.block * resolution);
   ctx.clearRect(0, 0, hiSize, hiSize);
 
-  const grad = ctx.createLinearGradient(0, 0, hiSize, hiSize);
+  // 1. Base Gradient (Jelly Body)
+  const grad = ctx.createLinearGradient(0, 0, 0, hiSize);
   grad.addColorStop(0, COLOR_HEX[color]);
-  grad.addColorStop(1, '#ffffff');
+  grad.addColorStop(1, '#ffffff'); // Slightly lighter at bottom for depth
 
   ctx.fillStyle = grad;
   ctx.beginPath();
   const r = radius;
+  // Rounded rect path
   ctx.moveTo(r, 0);
   ctx.lineTo(hiSize - r, 0);
   ctx.quadraticCurveTo(hiSize, 0, hiSize, r);
@@ -38,15 +40,40 @@ const ensureBlockTexture = (scene: Phaser.Scene, color: ColorKey): void => {
   ctx.closePath();
   ctx.fill();
 
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = '#000000';
-  ctx.beginPath();
-  ctx.arc(hiSize * 0.62, hiSize * 0.38, Math.max(1, 6 * resolution), 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  // 2. Inner Shadow (Soft ambient occlusion)
+  ctx.save();
+  ctx.clip();
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 8 * resolution;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+  ctx.lineWidth = 4 * resolution;
+  ctx.stroke();
+  ctx.restore();
 
-  ctx.strokeStyle = 'rgba(0,0,0,0.20)';
-  ctx.lineWidth = Math.max(1, Math.floor(2 * resolution));
+  // 3. Top Highlight (Glossy reflection)
+  const highlightGrad = ctx.createLinearGradient(0, 0, 0, hiSize * 0.5);
+  highlightGrad.addColorStop(0, 'rgba(255,255,255,0.7)');
+  highlightGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  
+  ctx.fillStyle = highlightGrad;
+  ctx.beginPath();
+  ctx.ellipse(hiSize * 0.5, hiSize * 0.2, hiSize * 0.35, hiSize * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4. Bottom Rim Light (Bounce light)
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(hiSize * 0.5, hiSize * 0.9, hiSize * 0.3, hiSize * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 5. Border
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = Math.max(1, Math.floor(1.5 * resolution));
   ctx.stroke();
 
   canvasTex.refresh();

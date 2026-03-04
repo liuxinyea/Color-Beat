@@ -3,37 +3,50 @@ import { UI_TEXT } from '@/config/constants';
 import { UI_CONFIG } from '@/config/gameConfig';
 import { Button } from '@/components/Button';
 import { tweenAlpha } from '@/animations/TweenAnimations';
+import { createText } from '@/utils/ui';
+
+import { BaseScene } from './BaseScene';
 
 type AlphaGO = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Alpha;
 
-export class GameOverScene extends Phaser.Scene {
+export class GameOverScene extends BaseScene {
+  private overlay!: Phaser.GameObjects.Rectangle;
+
   constructor() {
     super('GameOverScene');
   }
 
+  protected onResize(width: number, height: number, zoom: number): void {
+    if (this.overlay) {
+      // Scale overlay to cover the full window (inverse of camera zoom)
+      this.overlay.setScale(width / zoom / this.TARGET_WIDTH * 2, height / zoom / this.TARGET_HEIGHT * 2);
+    }
+  }
+
   create(): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
+    super.create();
+    const w = this.TARGET_WIDTH;
+    const h = this.TARGET_HEIGHT;
 
     const score = Number(this.registry.get('colorBeat.lastScore') ?? 0);
     const highScore = Number(this.registry.get('colorBeat.highScore') ?? 0);
 
-    const overlay = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.7);
-    overlay.setDepth(100);
+    this.overlay = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.7);
+    this.overlay.setDepth(100);
 
     const panel = this.add.graphics();
     panel.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
     panel.fillRoundedRect(w / 2 - 200, h / 2 - 120, 400, 240, UI_CONFIG.radius.card);
     panel.setDepth(101);
 
-    const title = this.add.text(w / 2, h / 2 - 70, UI_TEXT.gameOver, UI_CONFIG.text.title).setOrigin(0.5);
+    const title = createText(this, w / 2, h / 2 - 70, UI_TEXT.gameOver, UI_CONFIG.text.title).setOrigin(0.5);
     title.setDepth(102);
     title.setTintFill(0x4cc9f0, 0x7209b7, 0x7209b7, 0x4cc9f0);
 
-    const scoreText = this.add.text(w / 2, h / 2 - 10, `Score: 0`, UI_CONFIG.text.panel).setOrigin(0.5);
+    const scoreText = createText(this, w / 2, h / 2 - 10, `Score: 0`, UI_CONFIG.text.panel).setOrigin(0.5);
     scoreText.setDepth(102);
 
-    const bestText = this.add.text(w / 2, h / 2 + 28, `Best: ${highScore}`, UI_CONFIG.text.subtitle).setOrigin(0.5);
+    const bestText = createText(this, w / 2, h / 2 + 28, `Best: ${highScore}`, UI_CONFIG.text.subtitle).setOrigin(0.5);
     bestText.setDepth(102);
     bestText.setAlpha(0.85);
 
@@ -47,10 +60,10 @@ export class GameOverScene extends Phaser.Scene {
     });
     restartBtn.setDepth(103);
 
-    const elements: AlphaGO[] = [overlay, panel, title, scoreText, bestText, restartBtn.container] as AlphaGO[];
+    const elements: AlphaGO[] = [this.overlay, panel, title, scoreText, bestText, restartBtn.container] as AlphaGO[];
     elements.forEach((e) => e.setAlpha(0));
 
-    tweenAlpha(this, overlay, 0, 1, 240);
+    tweenAlpha(this, this.overlay, 0, 1, 240);
     tweenAlpha(this, panel, 0, 1, 240);
     tweenAlpha(this, title, 0, 1, 240);
     tweenAlpha(this, scoreText, 0, 1, 240);

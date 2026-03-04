@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { tweenPop, tweenScale } from '@/animations/TweenAnimations';
+import { createText } from '@/utils/ui';
 
 type ButtonOptions = {
   width: number;
@@ -31,7 +32,7 @@ export class Button {
     this.bg = scene.add.graphics();
     this.drawBg();
 
-    this.label = scene.add.text(0, 0, options.text, options.textStyle).setOrigin(0.5);
+    this.label = createText(scene, 0, 0, options.text, options.textStyle).setOrigin(0.5);
 
     this.container = scene.add.container(x, y, [this.bg, this.label]);
     this.container.setSize(this.width, this.height);
@@ -68,7 +69,30 @@ export class Button {
 
   private drawBg(): void {
     this.bg.clear();
+    const w = this.width;
+    const h = this.height;
+    const r = this.radius;
+
+    // 1. Shadow (Ambient)
+    this.bg.fillStyle(0x000000, 0.2);
+    this.bg.fillRoundedRect(-w / 2 + 2, -h / 2 + 4, w, h, r);
+
+    // 2. Base (Jelly Body)
     this.bg.fillStyle(this.fill, this.fillAlpha);
-    this.bg.fillRoundedRect(-this.width / 2, -this.height / 2, this.width, this.height, this.radius);
+    this.bg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
+
+    // 3. Inner Shadow (Soft depth)
+    // Graphics masking is tricky for inner shadow in simple shapes, 
+    // so we simulate it with a slightly darker stroke or overlay
+    this.bg.lineStyle(2, 0x000000, 0.1);
+    this.bg.strokeRoundedRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2, r);
+
+    // 4. Top Highlight (Glossy)
+    this.bg.fillStyle(0xffffff, 0.25);
+    this.bg.fillEllipse(0, -h * 0.3, w * 0.8, h * 0.35);
+
+    // 5. Bottom Rim Light
+    this.bg.fillStyle(0xffffff, 0.15);
+    this.bg.fillEllipse(0, h * 0.35, w * 0.6, h * 0.15);
   }
 }
