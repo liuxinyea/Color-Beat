@@ -147,11 +147,16 @@ export class GameScene extends BaseScene {
   }
 
   private createPanels(): void {
-    const w = this.scale.width;
+    const w = this.TARGET_WIDTH;
     this.scorePanel = new ScorePanel(this, 20, 20);
     this.countdownPanel = new CountdownPanel(this, w - 200, 20);
 
+    // Score panel enters from left
+    this.scorePanel.container.setPosition(-220, 20);
     tweenMove(this, this.scorePanel.container, -220, 20, 20, 20, 500);
+
+    // Countdown panel enters from right
+    this.countdownPanel.container.setPosition(w + 220, 20);
     tweenMove(this, this.countdownPanel.container, w + 220, 20, w - 200, 20, 500);
 
     this.scorePanel.setScore(this, this.score, 'none');
@@ -379,7 +384,7 @@ export class GameScene extends BaseScene {
     });
 
     if (delta >= 300) {
-      const flash = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, COLOR_INT[color], 0.24);
+      const flash = this.add.rectangle(this.TARGET_WIDTH / 2, this.TARGET_HEIGHT / 2, this.TARGET_WIDTH, this.TARGET_HEIGHT, COLOR_INT[color], 0.24);
       flash.setDepth(60);
       this.tweens.add({
         targets: flash,
