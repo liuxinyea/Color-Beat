@@ -37,33 +37,33 @@ export class GameOverScene extends BaseScene {
 
     const panel = this.add.graphics();
     panel.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
-    panel.fillRoundedRect(w / 2 - 200, h / 2 - 120, 400, 320, UI_CONFIG.radius.card);
+    panel.fillRoundedRect(w / 2 - 480, h / 2 - 288, 960, 768, UI_CONFIG.radius.card); // Scaled
     panel.setDepth(101);
 
-    const title = createText(this, w / 2, h / 2 - 70, UI_TEXT.gameOver, UI_CONFIG.text.title).setOrigin(0.5);
+    const title = createText(this, w / 2, h / 2 - 168, UI_TEXT.gameOver, UI_CONFIG.text.title).setOrigin(0.5); // Scaled
     title.setDepth(102);
     title.setTintFill(0x4cc9f0, 0x7209b7, 0x7209b7, 0x4cc9f0);
 
-    const scoreText = createText(this, w / 2, h / 2 - 10, `Score: 0`, UI_CONFIG.text.panel).setOrigin(0.5);
+    const scoreText = createText(this, w / 2, h / 2 - 24, `Score: 0`, UI_CONFIG.text.panel).setOrigin(0.5); // Scaled
     scoreText.setDepth(102);
 
-    const bestText = createText(this, w / 2, h / 2 + 28, `Best: ${highScore}`, UI_CONFIG.text.subtitle).setOrigin(0.5);
+    const bestText = createText(this, w / 2, h / 2 + 67, `Best: ${highScore}`, UI_CONFIG.text.subtitle).setOrigin(0.5); // Scaled
     bestText.setDepth(102);
     bestText.setAlpha(0.85);
 
-    const continueBtn = new Button(this, w / 2, h / 2 + 65, {
-      width: 280, // Wider for longer text
-      height: 44,
+    const continueBtn = new Button(this, w / 2, h / 2 + 156, { // Scaled
+      width: 672, // Scaled
+      height: 106, // Scaled
       radius: UI_CONFIG.radius.button,
       fill: 0xf59e0b, // Amber for ad/continue
       text: UI_TEXT.continue,
-      textStyle: { ...UI_CONFIG.text.small, color: '#ffffff', fontSize: '20px' },
+      textStyle: { ...UI_CONFIG.text.small, color: '#ffffff', fontSize: '48px' }, // Scaled font
     });
     continueBtn.setDepth(103);
 
-    const restartBtn = new Button(this, w / 2, h / 2 + 125, {
-      width: 160,
-      height: 40,
+    const restartBtn = new Button(this, w / 2, h / 2 + 300, { // Scaled
+      width: 384, // Scaled
+      height: 96, // Scaled
       radius: UI_CONFIG.radius.button,
       fill: 0x3b82f6,
       text: UI_TEXT.restart,
@@ -71,8 +71,7 @@ export class GameOverScene extends BaseScene {
     });
     restartBtn.setDepth(103);
 
-    // Increase panel height to accommodate two buttons
-    panel.fillRoundedRect(w / 2 - 200, h / 2 - 120, 400, 320, UI_CONFIG.radius.card);
+    // Removed the second fillRoundedRect call since we did it above correctly
 
     const elements: AlphaGO[] = [this.overlay, panel, title, scoreText, bestText, restartBtn.container, continueBtn.container] as AlphaGO[];
     elements.forEach((e) => e.setAlpha(0));
