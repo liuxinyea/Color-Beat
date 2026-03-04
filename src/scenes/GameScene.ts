@@ -5,12 +5,15 @@ import { GAME_PLAY_CONFIG, UI_CONFIG } from '@/config/gameConfig';
 import { COLOR_INT, COLOR_KEYS, KEY_CODE_MAP, KEY_MAP, UI_TEXT } from '@/config/constants';
 import type { ColorKey } from '@/types';
 import { createBeatRipple, createExplosion } from '@/animations/ParticleEffects';
+import { showHitFeedback } from '@/animations/FeedbackEffects';
 import { tweenMove, tweenScale } from '@/animations/TweenAnimations';
 import { playSound } from '@/utils/audio';
 import { pickRandom } from '@/utils/helper';
 import { getStorageNumber, setStorageNumber } from '@/utils/storage';
 import { pokiGameplayStart, pokiGameplayStop } from '@/utils/poki';
 import { spawnColorBlock, type SpawnedBlock } from '@/components/ColorBlock';
+import { createText } from '@/utils/ui';
+import { BaseScene } from './BaseScene';
 
 type Pad = {
   container: Phaser.GameObjects.Container;
@@ -22,7 +25,7 @@ type Pad = {
   height: number;
 };
 
-export class GameScene extends Phaser.Scene {
+export class GameScene extends BaseScene {
   private score = 0;
   private combo = 0;
   private timeLeft = GAME_PLAY_CONFIG.durationSeconds;
@@ -34,14 +37,33 @@ export class GameScene extends Phaser.Scene {
   private adaptiveFactor = 1;
   private beatIntensity = 0.4;
   private highScore = 0;
+  private background!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super('GameScene');
   }
 
+  protected onResize(width: number, height: number, zoom: number): void {
+    if (this.background) {
+      // Manually resize background to cover full screen, since it's just a gradient rect
+      // We scale it inversely to zoom so it looks "fixed" in screen space but still rendered in world space
+      const w = width / zoom;
+      const h = height / zoom;
+      this.background.clear();
+      this.background.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
+      // Center the background relative to the camera center (TARGET_WIDTH/2, TARGET_HEIGHT/2)
+      // Top-left in world space would be:
+      const worldX = (this.TARGET_WIDTH - w) / 2;
+      const worldY = (this.TARGET_HEIGHT - h) / 2;
+      this.background.fillRect(worldX, worldY, w, h);
+    }
+  }
+
   create(): void {
+    super.create();
     pokiGameplayStart();
 
+    this.closing = false;
     this.score = 0;
     this.combo = 0;
     this.timeLeft = GAME_PLAY_CONFIG.durationSeconds;
@@ -64,7 +86,7 @@ export class GameScene extends Phaser.Scene {
 
   update(): void {
     if (this.closing) return;
-    const h = this.scale.height;
+    const h = this.TARGET_HEIGHT;
     const outY = h + 70;
 
     this.blocks.children.each((child: Phaser.GameObjects.GameObject) => {
@@ -80,14 +102,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createBackground(): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
-    bg.fillRect(0, 0, w, h);
+    const w = this.TARGET_WIDTH;
+    const h = this.TARGET_HEIGHT;
+    this.background = this.add.graphics();
+    this.background.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
+    this.background.fillRect(0, 0, w, h);
 
     this.tweens.add({
-      targets: bg,
+      targets: this.background,
       y: { from: 0, to: -18 },
       duration: 10000,
       yoyo: true,
@@ -100,17 +122,17 @@ export class GameScene extends Phaser.Scene {
     mask.fillRect(0, h - 140, w, 140);
     mask.setAlpha(0.06);
 
-    bg.setDepth(0);
+    this.background.setDepth(0);
     mask.setDepth(1);
   }
 
   private createHeader(): void {
-    const w = this.scale.width;
-    const title = this.add.text(w / 2, 22, UI_TEXT.title, UI_CONFIG.text.title).setOrigin(0.5);
+    const w = this.TARGET_WIDTH;
+    const title = createText(this, w / 2, 22, UI_TEXT.title, UI_CONFIG.text.title).setOrigin(0.5);
     title.setTintFill(0x4cc9f0, 0x7209b7, 0x7209b7, 0x4cc9f0);
     tweenScale(this, title, 1, 1.05, 2000, true);
 
-    const subtitle = this.add.text(w / 2, 52, UI_TEXT.subtitle, UI_CONFIG.text.subtitle).setOrigin(0.5);
+    const subtitle = createText(this, w / 2, 52, UI_TEXT.subtitle, UI_CONFIG.text.subtitle).setOrigin(0.5);
     subtitle.setAlpha(0.85);
 
     const fromY = -40;
@@ -137,8 +159,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPads(): Record<ColorKey, Pad> {
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const w = this.TARGET_WIDTH;
+    const h = this.TARGET_HEIGHT;
     const padH = GAME_PLAY_CONFIG.hitPadHeight;
     const gap = 10;
     const padW = Math.floor((w - gap * 5) / 4);
@@ -150,12 +172,25 @@ export class GameScene extends Phaser.Scene {
     COLOR_KEYS.forEach((color, idx) => {
       const x = gap + padW / 2 + idx * (padW + gap);
       const bg = this.add.graphics();
-      bg.fillStyle(COLOR_INT[color], 0.82);
-      bg.fillRoundedRect(-padW / 2, -padH / 2, padW, padH, UI_CONFIG.radius.pad);
+      const r = UI_CONFIG.radius.pad;
+      
+      // 1. Shadow (Depth)
+      bg.fillStyle(0x000000, 0.25);
+      bg.fillRoundedRect(-padW / 2 + 2, -padH / 2 + 4, padW, padH, r);
 
-      const label = this.add
-        .text(0, 0, isMobile ? '' : KEY_MAP[color], { ...UI_CONFIG.text.small, color: '#ffffff' })
-        .setOrigin(0.5);
+      // 2. Base (Color)
+      bg.fillStyle(COLOR_INT[color], 0.85);
+      bg.fillRoundedRect(-padW / 2, -padH / 2, padW, padH, r);
+
+      // 3. Inner Shadow (Concave feel)
+      bg.lineStyle(2, 0x000000, 0.15);
+      bg.strokeRoundedRect(-padW / 2 + 1, -padH / 2 + 1, padW - 2, padH - 2, r);
+
+      // 4. Glossy Highlight
+      bg.fillStyle(0xffffff, 0.2);
+      bg.fillEllipse(0, -padH * 0.3, padW * 0.8, padH * 0.35);
+
+      const label = createText(this, 0, 0, isMobile ? '' : KEY_MAP[color], { ...UI_CONFIG.text.small, color: '#ffffff' }).setOrigin(0.5);
 
       const container = this.add.container(x, y, [bg, label]);
       container.setSize(padW, padH);
@@ -231,8 +266,8 @@ export class GameScene extends Phaser.Scene {
       loop: true,
       callback: () => {
         if (this.closing) return;
-        const w = this.scale.width;
-        const h = this.scale.height;
+        const w = this.TARGET_WIDTH;
+        const h = this.TARGET_HEIGHT;
         const x = Phaser.Math.Between(Math.floor(w * 0.2), Math.floor(w * 0.8));
         const y = Phaser.Math.Between(Math.floor(h * 0.2), Math.floor(h * 0.6));
         const color = COLOR_INT[pickRandom(COLOR_KEYS)];
@@ -263,14 +298,16 @@ export class GameScene extends Phaser.Scene {
     this.flashPad(color);
 
     const target = this.findBestMatch(color);
+    const pad = this.pads[color];
+    
     if (!target) {
       playSound('miss', 0.8);
       this.applyScore(GAME_PLAY_CONFIG.score.miss, 'minus');
       this.combo = 0;
+      showHitFeedback(this, pad.x, pad.y - 40, 'miss');
       return;
     }
 
-    const pad = this.pads[color];
     const dy = Math.abs(target.y - pad.y);
     if (dy <= GAME_PLAY_CONFIG.judge.perfectPx) {
       this.onHit(target, color, 'perfect');
@@ -284,6 +321,7 @@ export class GameScene extends Phaser.Scene {
     playSound('miss', 0.8);
     this.applyScore(GAME_PLAY_CONFIG.score.miss, 'minus');
     this.combo = 0;
+    showHitFeedback(this, target.x, target.y, 'miss');
   }
 
   private findBestMatch(color: ColorKey): SpawnedBlock | null {
@@ -321,10 +359,16 @@ export class GameScene extends Phaser.Scene {
     this.applyScore(delta, 'plus');
     this.beatIntensity = Math.min(1, this.beatIntensity + (quality === 'perfect' ? 0.18 : 0.12));
 
-    if (quality === 'perfect') playSound('perfect', 1);
-    else playSound('good', 0.95);
+    if (quality === 'perfect') {
+      playSound('perfect', 1);
+      this.cameras.main.shake(120, 0.005);
+    } else {
+      playSound('good', 0.95);
+      this.cameras.main.shake(80, 0.002);
+    }
 
-    createExplosion(this, block.x, block.y, COLOR_INT[color], quality === 'perfect' ? 1 : 0.85);
+    createExplosion(this, block.x, block.y, COLOR_INT[color], quality);
+    showHitFeedback(this, block.x, block.y, quality);
 
     this.tweens.add({
       targets: block,
@@ -403,7 +447,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('colorBeat.lastScore', this.score);
     this.registry.set('colorBeat.highScore', nextHigh);
 
-    const fade = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0);
+    const fade = this.add.rectangle(this.TARGET_WIDTH / 2, this.TARGET_HEIGHT / 2, this.TARGET_WIDTH, this.TARGET_HEIGHT, 0x000000, 0);
     fade.setDepth(200);
     this.tweens.add({
       targets: fade,

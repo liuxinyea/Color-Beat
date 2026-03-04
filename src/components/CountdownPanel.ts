@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { tweenPop } from '@/animations/TweenAnimations';
 import { UI_CONFIG } from '@/config/gameConfig';
+import { createText } from '@/utils/ui';
 
 export class CountdownPanel {
   readonly container: Phaser.GameObjects.Container;
@@ -14,7 +15,7 @@ export class CountdownPanel {
     this.bg.fillStyle(0xffffff, 0.1);
     this.bg.fillRoundedRect(0, 0, 180, 50, UI_CONFIG.radius.panel);
 
-    this.text = scene.add.text(170, 25, `Time: ${this.timeLeft}`, UI_CONFIG.text.panel).setOrigin(1, 0.5);
+    this.text = createText(scene, 170, 25, `Time: ${this.timeLeft}`, UI_CONFIG.text.panel).setOrigin(1, 0.5);
 
     this.container = scene.add.container(x, y, [this.bg, this.text]);
     this.container.setSize(180, 50);

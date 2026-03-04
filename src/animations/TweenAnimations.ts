@@ -2,20 +2,20 @@ import type Phaser from 'phaser';
 
 export const tweenScale = (
   scene: Phaser.Scene,
-  target: Phaser.GameObjects.GameObject,
+  target: object,
   from: number,
   to: number,
-  durationMs: number,
-  loop = false
-): Phaser.Tweens.Tween =>
-  scene.tweens.add({
+  duration: number,
+  yoyo = false
+): Phaser.Tweens.Tween => {
+  return scene.tweens.add({
     targets: target,
     scale: { from, to },
-    duration: durationMs,
-    ease: 'Power1',
-    loop: loop ? -1 : 0,
-    yoyo: loop,
+    duration,
+    yoyo,
+    ease: 'Sine.easeInOut',
   });
+};
 
 export const tweenAlpha = (
   scene: Phaser.Scene,
@@ -52,14 +52,26 @@ export const tweenMove = (
 
 export const tweenPop = (
   scene: Phaser.Scene,
-  target: Phaser.GameObjects.GameObject,
-  peakScale = 1.2,
-  durationMs = 200
-): Phaser.Tweens.Tween =>
-  scene.tweens.add({
+  target: object,
+  scale = 1.2,
+  duration = 100
+): Phaser.Tweens.Tween => {
+  return scene.tweens.add({
     targets: target,
-    scale: { from: 1, to: peakScale },
-    duration: Math.floor(durationMs / 2),
+    scaleX: scale,
+    scaleY: scale * 0.85, // Squish
+    duration: duration * 0.6,
     yoyo: true,
-    ease: 'Power1',
+    ease: 'Back.easeOut',
+    onComplete: () => {
+      // Secondary bounce
+      scene.tweens.add({
+        targets: target,
+        scaleX: 1,
+        scaleY: 1,
+        duration: duration * 1.5,
+        ease: 'Elastic.easeOut',
+      });
+    },
   });
+};
