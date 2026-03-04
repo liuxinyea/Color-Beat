@@ -4,6 +4,7 @@ import { UI_CONFIG } from '@/config/gameConfig';
 import { Button } from '@/components/Button';
 import { tweenAlpha } from '@/animations/TweenAnimations';
 import { createText } from '@/utils/ui';
+import { sdk } from '@/utils/sdk';
 
 import { BaseScene } from './BaseScene';
 
@@ -36,7 +37,7 @@ export class GameOverScene extends BaseScene {
 
     const panel = this.add.graphics();
     panel.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
-    panel.fillRoundedRect(w / 2 - 200, h / 2 - 120, 400, 240, UI_CONFIG.radius.card);
+    panel.fillRoundedRect(w / 2 - 200, h / 2 - 120, 400, 320, UI_CONFIG.radius.card);
     panel.setDepth(101);
 
     const title = createText(this, w / 2, h / 2 - 70, UI_TEXT.gameOver, UI_CONFIG.text.title).setOrigin(0.5);
@@ -50,9 +51,19 @@ export class GameOverScene extends BaseScene {
     bestText.setDepth(102);
     bestText.setAlpha(0.85);
 
-    const restartBtn = new Button(this, w / 2, h / 2 + 78, {
-      width: 160,
+    const continueBtn = new Button(this, w / 2, h / 2 + 65, {
+      width: 280, // Wider for longer text
       height: 44,
+      radius: UI_CONFIG.radius.button,
+      fill: 0xf59e0b, // Amber for ad/continue
+      text: UI_TEXT.continue,
+      textStyle: { ...UI_CONFIG.text.small, color: '#ffffff', fontSize: '20px' },
+    });
+    continueBtn.setDepth(103);
+
+    const restartBtn = new Button(this, w / 2, h / 2 + 125, {
+      width: 160,
+      height: 40,
       radius: UI_CONFIG.radius.button,
       fill: 0x3b82f6,
       text: UI_TEXT.restart,
@@ -60,7 +71,10 @@ export class GameOverScene extends BaseScene {
     });
     restartBtn.setDepth(103);
 
-    const elements: AlphaGO[] = [this.overlay, panel, title, scoreText, bestText, restartBtn.container] as AlphaGO[];
+    // Increase panel height to accommodate two buttons
+    panel.fillRoundedRect(w / 2 - 200, h / 2 - 120, 400, 320, UI_CONFIG.radius.card);
+
+    const elements: AlphaGO[] = [this.overlay, panel, title, scoreText, bestText, restartBtn.container, continueBtn.container] as AlphaGO[];
     elements.forEach((e) => e.setAlpha(0));
 
     tweenAlpha(this, this.overlay, 0, 1, 240);
@@ -69,8 +83,9 @@ export class GameOverScene extends BaseScene {
     tweenAlpha(this, scoreText, 0, 1, 240);
     tweenAlpha(this, bestText, 0, 1, 240);
     tweenAlpha(this, restartBtn.container, 0, 1, 240);
+    tweenAlpha(this, continueBtn.container, 0, 1, 240);
 
-    const container = this.add.container(0, 0, [panel, title, scoreText, bestText, restartBtn.container]);
+    const container = this.add.container(0, 0, [panel, title, scoreText, bestText, restartBtn.container, continueBtn.container]);
     container.setDepth(101);
     container.setScale(0.82);
     this.tweens.add({
@@ -95,7 +110,7 @@ export class GameOverScene extends BaseScene {
     });
 
     let closing = false;
-    const close = (): void => {
+    const close = (resume = false): void => {
       if (closing) return;
       closing = true;
       elements.forEach((e) => tweenAlpha(this, e, e.alpha, 0, 260));
@@ -104,15 +119,29 @@ export class GameOverScene extends BaseScene {
         () => {
           elements.forEach((e) => e.destroy());
           restartBtn.destroy();
-          this.scene.start('GameScene');
+          continueBtn.destroy();
+          this.scene.start('GameScene', { resume });
         },
         undefined,
         this
       );
     };
 
-    restartBtn.onClick(close);
+    restartBtn.onClick(() => close(false));
+    
+    continueBtn.onClick(() => {
+      sdk.requestRewardedAd({
+        adFinished: () => close(true),
+        adError: (e) => {
+          console.error(e);
+          // Fallback: just restart if ad fails? Or do nothing?
+          // For now, let's treat error as "no ad available" and just restart normally to be safe, 
+          // or maybe we should just alert the user. 
+          // Let's just log it and do nothing to let them try again or click restart.
+        }
+      });
+    });
 
-    this.input.keyboard?.once('keydown-KeyL', close);
+    this.input.keyboard?.once('keydown-KeyL', () => close(false));
   }
 }

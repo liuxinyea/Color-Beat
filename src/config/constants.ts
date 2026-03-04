@@ -39,6 +39,8 @@ export const UI_TEXT = {
   skip: 'Skip',
   gameOver: 'Game Over!',
   restart: 'Restart',
+  continue: 'Watch Ad to Continue (+60s)',
+  ad: 'Watch Ad',
   score: 'Score',
   time: 'Time',
   best: 'Best',

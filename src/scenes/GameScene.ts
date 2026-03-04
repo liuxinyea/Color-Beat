@@ -11,6 +11,7 @@ import { playSound } from '@/utils/audio';
 import { pickRandom } from '@/utils/helper';
 import { getStorageNumber, setStorageNumber } from '@/utils/storage';
 import { pokiGameplayStart, pokiGameplayStop } from '@/utils/poki';
+import { sdk } from '@/utils/sdk';
 import { spawnColorBlock, type SpawnedBlock } from '@/components/ColorBlock';
 import { createText } from '@/utils/ui';
 import { BaseScene } from './BaseScene';
@@ -59,15 +60,25 @@ export class GameScene extends BaseScene {
     }
   }
 
-  create(): void {
+  create(data?: { resume?: boolean }): void {
     super.create();
     pokiGameplayStart();
+    sdk.gameplayStart();
 
     this.closing = false;
-    this.score = 0;
-    this.combo = 0;
-    this.timeLeft = GAME_PLAY_CONFIG.durationSeconds;
-    this.closing = false;
+    
+    if (data?.resume) {
+      // Resume game: keep score, add 60s
+      this.score = Number(this.registry.get('colorBeat.lastScore') ?? 0);
+      this.combo = 0; // Reset combo but keep score
+      this.timeLeft = 60; // Add 1 minute
+    } else {
+      // New game
+      this.score = 0;
+      this.combo = 0;
+      this.timeLeft = GAME_PLAY_CONFIG.durationSeconds;
+    }
+
     this.adaptiveFactor = 1;
     this.beatIntensity = 0.4;
     this.highScore = getStorageNumber('colorBeat.highScore', 0);
@@ -445,6 +456,7 @@ export class GameScene extends BaseScene {
     if (this.closing) return;
     this.closing = true;
     pokiGameplayStop();
+    sdk.gameplayStop();
 
     const nextHigh = Math.max(this.highScore, this.score);
     if (nextHigh !== this.highScore) setStorageNumber('colorBeat.highScore', nextHigh);
