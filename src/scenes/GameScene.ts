@@ -40,6 +40,13 @@ export class GameScene extends BaseScene {
   private background!: Phaser.GameObjects.Graphics;
   private headerTitle!: Phaser.GameObjects.Text;
   private headerSubtitle!: Phaser.GameObjects.Text;
+  private music!: Phaser.Sound.BaseSound;
+  private nextBeatIndex = 0;
+  private lastVisualBeatIndex = 0;
+  // private readonly BPM = 128;
+  private readonly BEAT_INTERVAL = 60 / 128; // seconds
+  private isPlaying = false;
+  private startOverlay!: Phaser.GameObjects.Container;
 
   constructor() {
     super('GameScene');
@@ -72,7 +79,12 @@ export class GameScene extends BaseScene {
     // 2. Panels
     this.countdownPanel.container.setX(w - 200);
 
-    // 3. Pads & Blocks
+    // 3. Start Overlay
+    if (this.startOverlay) {
+      this.startOverlay.setPosition(w / 2, this.TARGET_HEIGHT / 2);
+    }
+
+    // 4. Pads & Blocks
     this.recreatePads(false);
   }
 
@@ -81,10 +93,10 @@ export class GameScene extends BaseScene {
     pokiGameplayStart();
 
     this.closing = false;
+    this.isPlaying = false; // Wait for user to start
     this.score = 0;
     this.combo = 0;
     this.timeLeft = GAME_PLAY_CONFIG.durationSeconds;
-    this.closing = false;
     this.adaptiveFactor = 1;
     this.beatIntensity = 0.4;
     this.highScore = getStorageNumber('colorBeat.highScore', 0);
@@ -93,16 +105,95 @@ export class GameScene extends BaseScene {
     this.createHeader();
     this.createPanels();
     this.recreatePads();
+    this.createStartOverlay();
 
     this.blocks = this.physics.add.group({ allowGravity: false });
 
     this.setupInput();
     this.setupTimers();
-    this.setupBeat();
+    // this.setupBeat(); // Handled in checkRhythm
+
+    // Music setup but NOT playing yet
+    if (this.cache.audio.exists('music')) {
+      this.music = this.sound.add('music', { loop: true, volume: 0.6 });
+    } else {
+      console.log('no music in cache');
+    }
+    this.nextBeatIndex = 1; // Start from 1st beat
+  }
+
+  private createStartOverlay(): void {
+    const w = this.TARGET_WIDTH;
+    const h = this.TARGET_HEIGHT;
+
+    const overlayBg = this.add.rectangle(0, 0, w, h, 0x000000, 0.6);
+    // Ensure overlay covers full screen even if container is small?
+    // Actually we put it in container centered at w/2, h/2.
+    // So rect should be w, h centered at 0,0.
+    
+    const startBtn = this.add.container(0, 0);
+    const btnBg = this.add.graphics();
+    btnBg.fillStyle(0x3b82f6, 1);
+    btnBg.fillRoundedRect(-100, -30, 200, 60, 15);
+    
+    const btnText = createText(this, 0, 0, 'START GAME', { fontSize: '24px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    
+    startBtn.add([btnBg, btnText]);
+    
+    // Pulse animation
+    this.tweens.add({
+      targets: startBtn,
+      scale: 1.1,
+      duration: 800,
+      yoyo: true,
+      loop: -1
+    });
+
+    const hitZone = this.add.zone(0, 0, 200, 60);
+    hitZone.setInteractive({ useHandCursor: true });
+    startBtn.add(hitZone);
+    
+    hitZone.once('pointerdown', () => {
+      this.startGame();
+    });
+
+    this.startOverlay = this.add.container(w / 2, h / 2, [overlayBg, startBtn]);
+    this.startOverlay.setDepth(200);
+  }
+
+  private startGame(): void {
+    if (this.isPlaying) return;
+    
+    // Resume AudioContext if needed
+    if (this.sound instanceof Phaser.Sound.WebAudioSoundManager && this.sound.context.state === 'suspended') {
+      this.sound.context.resume();
+    }
+
+    this.isPlaying = true;
+    
+    // Hide overlay
+    this.tweens.add({
+        targets: this.startOverlay,
+        alpha: 0,
+        duration: 300,
+        onComplete: () => {
+            this.startOverlay.setVisible(false);
+        }
+    });
+
+    // Start music
+    if (this.music) {
+        this.music.play();
+    }
   }
 
   update(): void {
     if (this.closing) return;
+    
+    if (this.isPlaying) {
+        this.checkRhythm();
+    }
+
     const h = this.TARGET_HEIGHT;
     const outY = h + 70;
 
@@ -229,10 +320,10 @@ export class GameScene extends BaseScene {
       const container = this.add.container(x, y, [bg, label]);
       container.setSize(padW, padH);
 
-      // Create a significantly larger hit area for mobile responsiveness
-      // 1. Width: Extend to the midpoint of gaps on both sides (padW + gap)
-      // 2. Height: Extend from well above the pad (for early taps) to well below the screen bottom
-      const hitW = padW + gap;
+      // Create a hit area that is larger than the pad but leaves a safety gap between pads
+      // to prevent mis-clicks (hitting the wrong lane).
+      // gap is 10px. If we extend by 4px total (2px each side), we leave 6px safety zone.
+      const hitW = padW + 4;
       
       // Top relative to container center (-padH/2 is top edge). 
       // Go 1.5x pad height above top edge.
@@ -243,15 +334,28 @@ export class GameScene extends BaseScene {
       const bottomOffset = padH / 2 + bottomMargin + 50;
 
       const hitH = bottomOffset - topOffset;
-      const hitY = topOffset; // Rectangle(x, y, w, h) where x,y is top-left relative to container
+      // const hitY = topOffset; // Rectangle(x, y, w, h) where x,y is top-left relative to container
       
-      const hit = new Phaser.Geom.Rectangle(-hitW / 2, hitY, hitW, hitH);
-      container.setInteractive(hit, Phaser.Geom.Rectangle.Contains);
-
+      // Fix: Phaser's setInteractive with Rectangle on Container can be tricky with offsets.
+      // Instead of relying on container.setInteractive(rect), let's create a transparent Zone/Rectangle
+      // and add it to the container, which is more reliable for positioning.
+      // Wait, Zone inside Container might also have issues if not handled carefully.
+      // Best way: Add a transparent Graphics or Shape as the hit area.
+      
+      // Center of hit area relative to container center (0,0)
+      const hitCenterY = topOffset + hitH / 2;
+      
+      const hitZone = this.add.zone(0, hitCenterY, hitW, hitH);
+      hitZone.setOrigin(0.5);
+      container.add(hitZone);
+      
+      hitZone.setInteractive({ useHandCursor: true });
+      hitZone.on('pointerdown', () => this.handleInput(color));
+      
       // Debug: Visualize Hit Area
       // const debug = this.add.graphics();
-      // debug.lineStyle(2, 0x00ff00, 0.5);
-      // debug.strokeRect(-hitW / 2, hitY, hitW, hitH);
+      // debug.fillStyle(0xff0000, 0.3); // Semi-transparent red
+      // debug.fillRect(-hitW / 2, topOffset, hitW, hitH);
       // container.add(debug);
 
       this.tweens.add({
@@ -263,12 +367,27 @@ export class GameScene extends BaseScene {
         ease: 'Sine.easeInOut',
       });
 
-      container.on('pointerdown', () => this.handleInput(color));
+      // We handle input on hitZone now.
+      // container.on('pointerdown', () => this.handleInput(color));
 
       pads[color] = { container, bg, label, x, y, width: padW, height: padH };
     });
 
-    this.pads = pads;
+    // Debug: Visual indicator for click position to check alignment
+      this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          const circle = this.add.circle(pointer.worldX, pointer.worldY, 5, 0x00ff00);
+          circle.setDepth(1000);
+          this.tweens.add({
+              targets: circle,
+              alpha: 0,
+              scale: 2,
+              duration: 500,
+              onComplete: () => circle.destroy()
+          });
+          console.log(`Global Click: ${pointer.worldX.toFixed(1)}, ${pointer.worldY.toFixed(1)}`);
+      });
+
+      this.pads = pads;
 
     if (animate) {
       this.tweens.add({
@@ -282,7 +401,7 @@ export class GameScene extends BaseScene {
     }
 
     // Update existing blocks position if any
-    if (this.blocks) {
+    if (this.blocks?.children) {
       this.blocks.children.each((child) => {
         const block = child as SpawnedBlock;
         if (block.active && block.colorKey && this.pads[block.colorKey]) {
@@ -305,17 +424,13 @@ export class GameScene extends BaseScene {
   }
 
   private setupTimers(): void {
-    this.time.addEvent({
-      delay: GAME_PLAY_CONFIG.spawnIntervalMs,
-      loop: true,
-      callback: () => this.spawnBlock(),
-    });
+    // Removed spawn timer in favor of rhythm-based spawning
 
     this.time.addEvent({
       delay: 1000,
       loop: true,
       callback: () => {
-        if (this.closing) return;
+        if (this.closing || !this.isPlaying) return;
         this.timeLeft -= 1;
         this.countdownPanel.setTime(this, this.timeLeft);
 
@@ -330,37 +445,94 @@ export class GameScene extends BaseScene {
     });
   }
 
-  private setupBeat(): void {
-    this.time.addEvent({
-      delay: GAME_PLAY_CONFIG.beat.intervalMs,
-      loop: true,
-      callback: () => {
-        if (this.closing) return;
-        const w = this.TARGET_WIDTH;
-        const h = this.TARGET_HEIGHT;
-        const x = Phaser.Math.Between(Math.floor(w * 0.2), Math.floor(w * 0.8));
-        const y = Phaser.Math.Between(Math.floor(h * 0.2), Math.floor(h * 0.6));
-        const color = COLOR_INT[pickRandom(COLOR_KEYS)];
-        createBeatRipple(this, x, y, color, 0.14 + 0.08 * this.beatIntensity);
-        playSound('beat', this.beatIntensity);
-        this.beatIntensity = Math.max(0.35, this.beatIntensity * 0.9);
-      },
-    });
+  private checkRhythm(): void {
+    if (!this.music || !this.music.isPlaying) return;
+
+    // Use WebAudioSound 'seek' property for precise timing
+    const currentTime = (this.music as Phaser.Sound.WebAudioSound).seek;
+    if (typeof currentTime !== 'number') return;
+
+    // --- Block Spawning ---
+    const pads = Object.values(this.pads);
+    if (pads.length === 0) return;
+    const padY = pads[0].y;
+    const spawnY = -40;
+    const distance = padY - spawnY;
+
+    // Audio latency compensation (ms)
+    // Positive value means we spawn earlier to account for audio delay
+    // Usually web audio has ~100-200ms latency depending on device.
+    // Also visual perception time ~100ms.
+    // Let's try adding a small offset to align "hit" with "beat heard".
+    const latencyOffset = 0.15; // 150ms
+
+    // Calculate current speed
+    const elapsed = GAME_PLAY_CONFIG.durationSeconds - this.timeLeft;
+    const baseSpeed = elapsed < 20 ? GAME_PLAY_CONFIG.speed.slow : elapsed < 40 ? GAME_PLAY_CONFIG.speed.medium : GAME_PLAY_CONFIG.speed.fast;
+    const speed = Math.floor(baseSpeed * this.adaptiveFactor);
+    
+    // Travel time in seconds
+    const travelTime = distance / speed;
+
+    // Calculate target hit time for the next beat
+    // We want the block to arrive exactly when the beat plays.
+    // However, if we hear the beat at T, the game logic thinks it's T.
+    // But if we spawn based on T, it might be late due to update loop.
+    // Actually, we want to hit at TargetTime.
+    // SpawnTime = TargetTime - TravelTime.
+    // If we have latency, we hear the beat LATER than logic time.
+    // So if logic says beat is at 10.0s, we hear it at 10.15s.
+    // We want visual hit to happen at 10.15s too (so it looks sync with sound).
+    // So TargetTime should be logicBeatTime + latencyOffset.
+    const targetHitTime = this.nextBeatIndex * this.BEAT_INTERVAL + latencyOffset;
+    
+    // Determine when we should spawn the block to hit at targetHitTime
+    const spawnTime = targetHitTime - travelTime;
+
+    // Check if it's time to spawn
+    // We use a small lookahead window to catch the spawn frame
+    if (currentTime >= spawnTime) {
+       this.spawnBlock(speed);
+       this.nextBeatIndex++;
+    }
+
+    // --- Visual Beat Effect ---
+    // Trigger effect exactly on beat
+    const visualBeatIndex = Math.floor(currentTime / this.BEAT_INTERVAL);
+    if (visualBeatIndex > this.lastVisualBeatIndex) {
+       this.lastVisualBeatIndex = visualBeatIndex;
+       this.triggerBeatEffect();
+    }
   }
 
-  private spawnBlock(): void {
+  private triggerBeatEffect(): void {
+    if (this.closing) return;
+    const w = this.TARGET_WIDTH;
+    const h = this.TARGET_HEIGHT;
+    const x = Phaser.Math.Between(Math.floor(w * 0.2), Math.floor(w * 0.8));
+    const y = Phaser.Math.Between(Math.floor(h * 0.2), Math.floor(h * 0.6));
+    const color = COLOR_INT[pickRandom(COLOR_KEYS)];
+    createBeatRipple(this, x, y, color, 0.14 + 0.08 * this.beatIntensity);
+    // playSound('beat', this.beatIntensity); // Optional: sync beat sound with music? Usually music has the beat.
+    this.beatIntensity = Math.max(0.35, this.beatIntensity * 0.9);
+  }
+
+  private spawnBlock(speedOverride?: number): void {
     if (this.closing) return;
     const color = pickRandom(COLOR_KEYS);
     const pad = this.pads[color];
     const x = pad.x + Phaser.Math.Between(-6, 6);
     const y = -40;
 
-    const elapsed = GAME_PLAY_CONFIG.durationSeconds - this.timeLeft;
-    const baseSpeed =
-      elapsed < 20 ? GAME_PLAY_CONFIG.speed.slow : elapsed < 40 ? GAME_PLAY_CONFIG.speed.medium : GAME_PLAY_CONFIG.speed.fast;
-
-    const speed = Math.floor(baseSpeed * this.adaptiveFactor);
-    spawnColorBlock(this, this.blocks, color, x, y, speed);
+    let speed = speedOverride;
+    if (!speed) {
+      const elapsed = GAME_PLAY_CONFIG.durationSeconds - this.timeLeft;
+      const baseSpeed =
+        elapsed < 20 ? GAME_PLAY_CONFIG.speed.slow : elapsed < 40 ? GAME_PLAY_CONFIG.speed.medium : GAME_PLAY_CONFIG.speed.fast;
+      speed = Math.floor(baseSpeed * this.adaptiveFactor);
+    }
+    
+    spawnColorBlock(this, this.blocks, color, x, y, speed!);
   }
 
   private handleInput(color: ColorKey): void {
@@ -510,6 +682,10 @@ export class GameScene extends BaseScene {
     if (this.closing) return;
     this.closing = true;
     pokiGameplayStop();
+
+    if (this.music) {
+      this.music.stop();
+    }
 
     const nextHigh = Math.max(this.highScore, this.score);
     if (nextHigh !== this.highScore) setStorageNumber('colorBeat.highScore', nextHigh);

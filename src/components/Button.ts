@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { tweenPop, tweenScale } from '@/animations/TweenAnimations';
+// import { tweenPop, tweenScale } from '@/animations/TweenAnimations';
 import { createText } from '@/utils/ui';
 
 type ButtonOptions = {
@@ -37,26 +37,39 @@ export class Button {
     this.container = scene.add.container(x, y, [this.bg, this.label]);
     this.container.setSize(this.width, this.height);
 
-    const hit = new Phaser.Geom.Rectangle(-this.width / 2, -this.height / 2, this.width, this.height);
-    this.container.setInteractive(hit, Phaser.Geom.Rectangle.Contains);
+    // Use Zone for reliable hit area in Container
+    const hitZone = scene.add.zone(0, 0, this.width, this.height);
+    hitZone.setOrigin(0.5);
+    this.container.add(hitZone);
+    hitZone.setInteractive({ useHandCursor: true });
 
-    this.container.on('pointerover', () => {
-      tweenScale(scene, this.container, this.container.scale, 1.05, 100, false);
+    hitZone.on('pointerover', () => {
+      // tweenScale(scene, this.container, this.container.scale, 1.05, 100, false);
+      // Scaling container inside its own event handler might be tricky if it affects hit area?
+      // But we are using a child Zone now, so scaling container scales zone too.
+      // Let's keep effect simple.
+      this.container.setScale(1.05);
     });
-    this.container.on('pointerout', () => {
-      tweenScale(scene, this.container, this.container.scale, 1.0, 100, false);
+    hitZone.on('pointerout', () => {
+      this.container.setScale(1.0);
     });
-    this.container.on('pointerdown', () => {
-      tweenPop(scene, this.container, 0.95, 100);
+    hitZone.on('pointerdown', () => {
+      this.container.setScale(0.95);
+    });
+    hitZone.on('pointerup', () => {
+      this.container.setScale(1.0);
+      if (this.clickHandler) this.clickHandler();
     });
   }
+  
+  private clickHandler: (() => void) | null = null;
 
   setText(text: string): void {
     this.label.setText(text);
   }
 
   onClick(handler: () => void): void {
-    this.container.on('pointerup', () => handler());
+    this.clickHandler = handler;
   }
 
   setDepth(depth: number): void {

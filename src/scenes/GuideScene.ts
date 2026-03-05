@@ -137,6 +137,12 @@ export class GuideScene extends BaseScene {
     let closing = false;
     const close = (): void => {
       if (closing) return;
+      
+      // Ensure AudioContext is resumed on user gesture
+      if (this.sound instanceof Phaser.Sound.WebAudioSoundManager && this.sound.context.state === 'suspended') {
+        this.sound.context.resume();
+      }
+      
       closing = true;
       elements.forEach((e) => tweenAlpha(this, e, e.alpha, 0, 260));
       this.time.delayedCall(
@@ -173,6 +179,7 @@ export class GuideScene extends BaseScene {
       },
     });
 
-    this.time.delayedCall(3000, close, undefined, this);
+    // Remove auto-close to force user interaction for AudioContext
+    // this.time.delayedCall(3000, close, undefined, this);
   }
 }

@@ -35,21 +35,27 @@ export class BaseScene extends Phaser.Scene {
     const height = gameSize.height;
 
     // Update target resolution based on orientation
+    // Note: We don't set fixed TARGET_WIDTH/HEIGHT here anymore, we calculate them below.
+    
+    // Strategy: Fix the short dimension, expand the long dimension.
+    // E.g. in Landscape, fix Height=450, let Width expand > 800.
+    // In Portrait, fix Width=450, let Height expand > 800.
+    
+    // Let's implement "Fixed Height" for Landscape and "Fixed Width" for Portrait logic.
+    let zoom = 1;
     if (height > width) {
-      // Portrait
-      this.TARGET_WIDTH = 450;
-      this.TARGET_HEIGHT = 800;
+      // Portrait: Fix Width to 450 (or whatever base width)
+      const baseWidth = 450;
+      zoom = width / baseWidth;
+      this.TARGET_WIDTH = baseWidth;
+      this.TARGET_HEIGHT = height / zoom;
     } else {
-      // Landscape
-      this.TARGET_WIDTH = 800;
-      this.TARGET_HEIGHT = 450;
+      // Landscape: Fix Height to 450
+      const baseHeight = 450;
+      zoom = height / baseHeight;
+      this.TARGET_HEIGHT = baseHeight;
+      this.TARGET_WIDTH = width / zoom;
     }
-
-    // Calculate zoom to fit the target area into the current window
-    // consistently like Scale.FIT but with native resolution
-    const zoomX = width / this.TARGET_WIDTH;
-    const zoomY = height / this.TARGET_HEIGHT;
-    const zoom = Math.min(zoomX, zoomY);
 
     this.cameras.main.setZoom(zoom);
     this.cameras.main.centerOn(this.TARGET_WIDTH / 2, this.TARGET_HEIGHT / 2);
