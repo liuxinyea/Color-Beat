@@ -7,9 +7,10 @@ import Phaser from 'phaser';
  * ensuring 1:1 pixel mapping for vector graphics and text.
  */
 export class BaseScene extends Phaser.Scene {
-  protected readonly TARGET_WIDTH = 800;
-  protected readonly TARGET_HEIGHT = 450;
+  protected TARGET_WIDTH = 800;
+  protected TARGET_HEIGHT = 450;
   private resizeListener: ((gameSize: Phaser.Structs.Size) => void) | null = null;
+  private isResizing = false;
 
   constructor(key: string) {
     super(key);
@@ -27,10 +28,24 @@ export class BaseScene extends Phaser.Scene {
   }
 
   protected handleResize(gameSize: Phaser.Structs.Size): void {
+    if (this.isResizing) return;
+    this.isResizing = true;
+
     const width = gameSize.width;
     const height = gameSize.height;
 
-    // Calculate zoom to fit the target area (800x450) into the current window
+    // Update target resolution based on orientation
+    if (height > width) {
+      // Portrait
+      this.TARGET_WIDTH = 450;
+      this.TARGET_HEIGHT = 800;
+    } else {
+      // Landscape
+      this.TARGET_WIDTH = 800;
+      this.TARGET_HEIGHT = 450;
+    }
+
+    // Calculate zoom to fit the target area into the current window
     // consistently like Scale.FIT but with native resolution
     const zoomX = width / this.TARGET_WIDTH;
     const zoomY = height / this.TARGET_HEIGHT;
@@ -39,15 +54,30 @@ export class BaseScene extends Phaser.Scene {
     this.cameras.main.setZoom(zoom);
     this.cameras.main.centerOn(this.TARGET_WIDTH / 2, this.TARGET_HEIGHT / 2);
 
+    // Refresh scale manager safely
+    this.scale.refresh();
+
     // If there's a background that needs to cover the full screen, derived scenes
     // should handle it or we can expose a hook here.
     this.onResize(width, height, zoom);
+    
+    // Trigger layout update
+    this.layout();
+
+    this.isResizing = false;
   }
 
   /**
    * Hook for derived scenes to handle specific resize logic (e.g. background)
    */
   protected onResize(_width: number, _height: number, _zoom: number): void {
+    // To be overridden
+  }
+
+  /**
+   * Hook for derived scenes to reposition elements
+   */
+  protected layout(): void {
     // To be overridden
   }
 

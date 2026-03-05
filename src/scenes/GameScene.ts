@@ -38,6 +38,8 @@ export class GameScene extends BaseScene {
   private beatIntensity = 0.4;
   private highScore = 0;
   private background!: Phaser.GameObjects.Graphics;
+  private headerTitle!: Phaser.GameObjects.Text;
+  private headerSubtitle!: Phaser.GameObjects.Text;
 
   constructor() {
     super('GameScene');
@@ -59,6 +61,21 @@ export class GameScene extends BaseScene {
     }
   }
 
+  protected layout(): void {
+    if (!this.pads) return;
+
+    // 1. Header
+    const w = this.TARGET_WIDTH;
+    this.headerTitle.setX(w / 2);
+    this.headerSubtitle.setX(w / 2);
+
+    // 2. Panels
+    this.countdownPanel.container.setX(w - 200);
+
+    // 3. Pads & Blocks
+    this.recreatePads(false);
+  }
+
   create(): void {
     super.create();
     pokiGameplayStart();
@@ -75,7 +92,7 @@ export class GameScene extends BaseScene {
     this.createBackground();
     this.createHeader();
     this.createPanels();
-    this.pads = this.createPads();
+    this.recreatePads();
 
     this.blocks = this.physics.add.group({ allowGravity: false });
 
@@ -128,18 +145,18 @@ export class GameScene extends BaseScene {
 
   private createHeader(): void {
     const w = this.TARGET_WIDTH;
-    const title = createText(this, w / 2, 22, UI_TEXT.title, UI_CONFIG.text.title).setOrigin(0.5);
-    title.setTintFill(0x4cc9f0, 0x7209b7, 0x7209b7, 0x4cc9f0);
-    tweenScale(this, title, 1, 1.05, 2000, true);
+    this.headerTitle = createText(this, w / 2, 22, UI_TEXT.title, UI_CONFIG.text.title).setOrigin(0.5);
+    this.headerTitle.setTintFill(0x4cc9f0, 0x7209b7, 0x7209b7, 0x4cc9f0);
+    tweenScale(this, this.headerTitle, 1, 1.05, 2000, true);
 
-    const subtitle = createText(this, w / 2, 52, UI_TEXT.subtitle, UI_CONFIG.text.subtitle).setOrigin(0.5);
-    subtitle.setAlpha(0.85);
+    this.headerSubtitle = createText(this, w / 2, 52, UI_TEXT.subtitle, UI_CONFIG.text.subtitle).setOrigin(0.5);
+    this.headerSubtitle.setAlpha(0.85);
 
     const fromY = -40;
-    const toY = title.y;
-    title.setY(fromY);
+    const toY = this.headerTitle.y;
+    this.headerTitle.setY(fromY);
     this.tweens.add({
-      targets: title,
+      targets: this.headerTitle,
       y: toY,
       duration: 500,
       ease: 'Power1',
@@ -163,19 +180,31 @@ export class GameScene extends BaseScene {
     this.countdownPanel.setTime(this, this.timeLeft);
   }
 
-  private createPads(): Record<ColorKey, Pad> {
+  private recreatePads(animate: boolean = true): void {
+    if (this.pads) {
+      Object.values(this.pads).forEach((p) => p.container.destroy());
+    }
+
     const w = this.TARGET_WIDTH;
     const h = this.TARGET_HEIGHT;
     const padH = GAME_PLAY_CONFIG.hitPadHeight;
     const gap = 10;
+    // Calculate precise pad width
     const padW = Math.floor((w - gap * 5) / 4);
-    const y = h - padH / 2 - 18;
+    
+    // Calculate total width used by pads and gaps
+    const totalWidth = 4 * padW + 5 * gap;
+    // Calculate left offset to center the group perfectly
+    const startX = (w - totalWidth) / 2 + gap + padW / 2;
+
     const isMobile = w < 600;
+    const bottomMargin = isMobile ? 48 : 18;
+    const y = h - padH / 2 - bottomMargin;
 
     const pads = {} as Record<ColorKey, Pad>;
 
     COLOR_KEYS.forEach((color, idx) => {
-      const x = gap + padW / 2 + idx * (padW + gap);
+      const x = startX + idx * (padW + gap);
       const bg = this.add.graphics();
       const r = UI_CONFIG.radius.pad;
       
@@ -200,8 +229,30 @@ export class GameScene extends BaseScene {
       const container = this.add.container(x, y, [bg, label]);
       container.setSize(padW, padH);
 
-      const hit = new Phaser.Geom.Rectangle(-padW / 2, -padH / 2, padW, padH);
+      // Create a significantly larger hit area for mobile responsiveness
+      // 1. Width: Extend to the midpoint of gaps on both sides (padW + gap)
+      // 2. Height: Extend from well above the pad (for early taps) to well below the screen bottom
+      const hitW = padW + gap;
+      
+      // Top relative to container center (-padH/2 is top edge). 
+      // Go 1.5x pad height above top edge.
+      const topOffset = -padH / 2 - padH * 1.5; 
+      
+      // Bottom relative to container center (padH/2 is bottom edge).
+      // Go all the way to bottom of screen (padH/2 + bottomMargin) plus extra buffer.
+      const bottomOffset = padH / 2 + bottomMargin + 50;
+
+      const hitH = bottomOffset - topOffset;
+      const hitY = topOffset; // Rectangle(x, y, w, h) where x,y is top-left relative to container
+      
+      const hit = new Phaser.Geom.Rectangle(-hitW / 2, hitY, hitW, hitH);
       container.setInteractive(hit, Phaser.Geom.Rectangle.Contains);
+
+      // Debug: Visualize Hit Area
+      // const debug = this.add.graphics();
+      // debug.lineStyle(2, 0x00ff00, 0.5);
+      // debug.strokeRect(-hitW / 2, hitY, hitW, hitH);
+      // container.add(debug);
 
       this.tweens.add({
         targets: container,
@@ -217,16 +268,30 @@ export class GameScene extends BaseScene {
       pads[color] = { container, bg, label, x, y, width: padW, height: padH };
     });
 
-    this.tweens.add({
-      targets: Object.values(pads).map((p) => p.container),
-      y: { from: y + 80, to: y },
-      alpha: { from: 0, to: 1 },
-      duration: 500,
-      ease: 'Power1',
-      stagger: 40,
-    });
+    this.pads = pads;
 
-    return pads;
+    if (animate) {
+      this.tweens.add({
+        targets: Object.values(pads).map((p) => p.container),
+        y: { from: y + 80, to: y },
+        alpha: { from: 0, to: 1 },
+        duration: 500,
+        ease: 'Power1',
+        stagger: 40,
+      });
+    }
+
+    // Update existing blocks position if any
+    if (this.blocks) {
+      this.blocks.children.each((child) => {
+        const block = child as SpawnedBlock;
+        if (block.active && block.colorKey && this.pads[block.colorKey]) {
+           const newPad = this.pads[block.colorKey];
+           block.x = newPad.x + Phaser.Math.Between(-6, 6);
+        }
+        return null;
+      });
+    }
   }
 
   private setupInput(): void {
